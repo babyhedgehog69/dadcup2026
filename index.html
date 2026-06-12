@@ -21,6 +21,7 @@
     --cobalt:   #2E4D9E;
     --sky:      #8FBFE8;
     --gold:     #E2A72E;
+    --silver:   #BFB9A8;
     --bronze:   #B0703C;
     --faint:    #7A6F57;
     --rule:     #D9C9A3;
@@ -211,7 +212,7 @@
     background: var(--paper);
   }
   .rank.r1 { background: var(--gold); }
-  .rank.r2 { background: var(--sky); }
+  .rank.r2 { background: var(--silver); }
   .rank.r3 { background: var(--bronze); color: var(--paper-hi); }
 
   .owner {
@@ -243,7 +244,9 @@
     text-align: center;
     box-shadow: 3px 3px 0 var(--ink);
   }
-  .row:first-of-type .score { background: var(--green); }
+  .score.s1 { background: var(--gold);   color: var(--ink); }
+  .score.s2 { background: var(--silver); color: var(--ink); }
+  .score.s3 { background: var(--bronze); }
 
   /* ============ EXPANDED TEAM SHEET ============ */
   .sheet {
@@ -504,7 +507,7 @@ function penaltyWinner(ev, home, away) {
 function buildStandings(events) {
   const teams = {};
   DRAFT.forEach(([team, group, owner]) => {
-    teams[team] = { team, group, owner, gs: [], ko: [], gsPts: 0, koPts: 0, pendingPen: false };
+    teams[team] = { team, group, owner, gs: [], ko: [], gsPts: 0, koPts: 0, gd: 0, pendingPen: false };
   });
 
   for (const ev of events) {
@@ -527,6 +530,7 @@ function buildStandings(events) {
         if (!t) continue;
         const won = winner === t;
         if (undecided) teams[t].pendingPen = true;
+        teams[t].gd += t === home ? hs - as : as - hs;
         teams[t].ko.push({
           round, won, pens: decidedOnPens, undecided,
           label: `${ev.strHomeTeam} ${hs}–${as} ${ev.strAwayTeam}` +
@@ -541,18 +545,19 @@ function buildStandings(events) {
     const res = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
     t.gs.push({ res, label: `${res === 'W' ? 'beat' : res === 'D' ? 'drew' : 'lost to'} ${opp} ${gf}–${ga}` });
     t.gsPts += res === 'W' ? PTS.GS_WIN : res === 'D' ? PTS.GS_DRAW : 0;
+    t.gd += gf - ga;
   }
 
   const owners = {};
   Object.values(teams).forEach(t => {
-    const o = owners[t.owner] ||= { owner: t.owner, gs: 0, ko: 0, total: 0, squad: [] };
-    o.gs += t.gsPts; o.ko += t.koPts; o.total += t.gsPts + t.koPts;
+    const o = owners[t.owner] ||= { owner: t.owner, gs: 0, ko: 0, gd: 0, total: 0, squad: [] };
+    o.gs += t.gsPts; o.ko += t.koPts; o.gd += t.gd; o.total += t.gsPts + t.koPts;
     o.squad.push(t);
   });
   Object.values(owners).forEach(o =>
     o.squad.sort((a, b) => (b.gsPts + b.koPts) - (a.gsPts + a.koPts) || a.team.localeCompare(b.team)));
   return Object.values(owners).sort((a, b) =>
-    b.total - a.total || b.ko - a.ko || a.owner.localeCompare(b.owner));
+    b.total - a.total || b.gd - a.gd || b.ko - a.ko || a.owner.localeCompare(b.owner));
 }
 
 /* =================== RENDER =================== */
@@ -581,9 +586,9 @@ function render(standings) {
         <span class="rank r${i + 1}">${i + 1}</span>
         <span>
           <div class="owner">${esc(o.owner)}${pending ? ' ⚠' : ''}</div>
-          <div class="breakdown">GROUP ${o.gs} · KNOCKOUT ${o.ko}</div>
+          <div class="breakdown">GROUP ${o.gs} · KNOCKOUT ${o.ko} · GD ${o.gd >= 0 ? '+' : ''}${o.gd}</div>
         </span>
-        <span class="score">${o.total}</span>
+        <span class="score s${i + 1}">${o.total}</span>
       </button>
       <div class="sheet" id="sheet-${i}">
         <div class="sheet-head"><span>${esc(o.owner)}'s squad</span><span>${o.total} pts</span></div>
