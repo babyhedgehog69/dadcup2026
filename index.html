@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dad Cup 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Monoton&family=Anton&family=Jost:wght@400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ============ POSTER TOKENS ============
+     cream poster stock · deep pitch green · vermilion ·
+     cobalt · gold — flat inks, offset "misregistration" shadows */
+  :root {
+    --paper:    #F2E6C9;
+    --paper-hi: #FBF2DC;
+    --ink:      #211D15;
+    --green:    #1E6B3C;
+    --green-dk: #14502B;
+    --verm:     #D6472B;
+    --cobalt:   #2E4D9E;
+    --sky:      #8FBFE8;
+    --gold:     #E2A72E;
+    --bronze:   #B0703C;
+    --faint:    #7A6F57;
+    --rule:     #D9C9A3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--paper);
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+    color: var(--ink);
+    font-family: 'Jost', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 70px;
+  }
+
+  .wrap { max-width: 680px; margin: 0 auto; padding: 0 16px; }
+
+  /* ============ POSTER HEADER ============ */
+  header { text-align: center; padding: 30px 0 6px; }
+
+  .langs {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--faint);
+    border-top: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+    padding: 5px 0 4px;
+    margin-bottom: 26px;
+  }
+
+  h1 {
+    font-family: 'Monoton', cursive;   /* Mexico 70 lined letterforms */
+    font-weight: 400;
+    font-size: clamp(52px, 14vw, 96px);
+    line-height: 0.92;
+    color: var(--green);
+    text-shadow: 3px 3px 0 rgba(214,71,43,0.35); /* off-register vermilion pass */
+    letter-spacing: 0.02em;
+  }
+
+  .year {
+    font-family: 'Anton', sans-serif;
+    font-size: clamp(40px, 11vw, 72px);
+    line-height: 1;
+    color: var(--cobalt);
+    letter-spacing: 0.18em;
+    margin: 6px 0 2px 0.18em; /* optical centering against tracking */
+    text-shadow: 4px 4px 0 var(--gold);
+  }
+
+  .sub {
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-top: 12px;
+  }
+
+  /* España 82 speed stripes + ball */
+  .speedlines {
+    display: flex; justify-content: center; align-items: center;
+    gap: 0; margin: 20px 0 10px;
+  }
+  .speedlines i {
+    display: block; height: 12px; width: 64px;
+    transform: skewX(-28deg);
+    margin-right: 5px;
+  }
+  .speedlines i:nth-child(1) { background: var(--gold);   width: 88px; }
+  .speedlines i:nth-child(2) { background: var(--verm);   }
+  .speedlines i:nth-child(3) { background: var(--cobalt); width: 44px; }
+  .speedlines b {
+    display: block; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--ink); margin-left: 6px;
+    box-shadow: inset -3px -3px 0 rgba(255,255,255,0.18);
+  }
+
+  .updated {
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    margin-bottom: 24px;
+  }
+  .updated button {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    background: none;
+    border: 2px solid var(--ink);
+    color: var(--ink);
+    padding: 2px 10px;
+    margin-left: 8px;
+    cursor: pointer;
+  }
+  .updated button:hover { background: var(--ink); color: var(--paper); }
+  .updated button:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+
+  /* ============ LIVE STRIP ============ */
+  .live-strip {
+    background: var(--verm);
+    color: var(--paper-hi);
+    border: 3px solid var(--ink);
+    box-shadow: 5px 5px 0 var(--ink);
+    padding: 9px 14px;
+    margin-bottom: 18px;
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+  .live-strip b {
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.25em;
+    margin-right: 10px;
+  }
+  .live-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--paper-hi); margin-right: 6px; vertical-align: 1px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .live-dot { animation: blink 1.2s ease-in-out infinite; }
+  }
+  @keyframes blink { 50% { opacity: 0.25; } }
+
+  /* ============ STANDINGS PANEL ============ */
+  .board {
+    background: var(--paper-hi);
+    border: 3px solid var(--ink);
+    box-shadow: 7px 7px 0 var(--ink);
+  }
+
+  /* flag bunting strip — 1950 poster sock of flags, abstracted */
+  .flagstrip {
+    height: 10px;
+    border-bottom: 3px solid var(--ink);
+    background: repeating-linear-gradient(90deg,
+      var(--verm) 0 26px, var(--gold) 26px 52px,
+      var(--cobalt) 52px 78px, var(--green) 78px 104px);
+  }
+
+  .board-title {
+    font-family: 'Anton', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.45em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 14px 0 12px 0.45em;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .board-inner { padding: 6px 14px 14px; }
+
+  .row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 2px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .row:last-of-type { border-bottom: none; }
+  .row:focus-visible { outline: 2px solid var(--cobalt); outline-offset: -2px; }
+  .row:hover .owner { color: var(--verm); }
+
+  .rank {
+    font-family: 'Anton', sans-serif;
+    font-size: 16px;
+    width: 32px; height: 32px;
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--paper);
+  }
+  .rank.r1 { background: var(--gold); }
+  .rank.r2 { background: var(--sky); }
+  .rank.r3 { background: var(--bronze); color: var(--paper-hi); }
+
+  .owner {
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.15s;
+  }
+  .breakdown {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-top: 2px;
+  }
+
+  /* poster-ink score block with off-register shadow */
+  .score {
+    font-family: 'Anton', sans-serif;
+    font-size: 24px;
+    line-height: 1;
+    background: var(--verm);
+    color: var(--paper-hi);
+    padding: 7px 12px 6px;
+    min-width: 54px;
+    text-align: center;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .row:first-of-type .score { background: var(--green); }
+
+  /* ============ EXPANDED TEAM SHEET ============ */
+  .sheet {
+    display: none;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    margin: 4px 2px 14px;
+    padding: 12px 14px;
+  }
+  .sheet.open { display: block; }
+
+  .sheet-head {
+    font-family: 'Anton', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .team-line {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 28px;
+  }
+  .team-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .team-group {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--faint);
+  }
+
+  .pips { display: inline-flex; gap: 4px; align-items: center; }
+  .pip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'Jost', sans-serif;
+    border: 2px solid var(--ink);
+    color: var(--ink);
+  }
+  .pip.w { background: var(--green); border-color: var(--green-dk); color: var(--paper-hi); }
+  .pip.d { background: var(--gold); }
+  .pip.l { background: transparent; border-color: #B5A98C; color: #9A8E70; }
+  .pip.ko { border-radius: 0; width: auto; min-width: 18px; padding: 0 3px;
+            background: var(--cobalt); border-color: var(--ink); color: var(--paper-hi); }
+  .pip.ko.l { background: transparent; color: #9A8E70; border-color: #B5A98C; }
+  .pip.pen { background: var(--verm); border-color: var(--ink); color: var(--paper-hi); }
+
+  .team-pts {
+    font-family: 'Anton', sans-serif;
+    font-size: 16px;
+    min-width: 30px;
+    text-align: right;
+  }
+
+  /* ============ SCORING KEY ============ */
+  .key {
+    margin-top: 28px;
+    border: 2px solid var(--ink);
+    padding: 16px 18px;
+    font-size: 13px;
+    line-height: 2;
+    background: var(--paper-hi);
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .key h2 {
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .key b { color: var(--verm); }
+
+  /* ============ STATES ============ */
+  .state {
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 14px;
+    line-height: 1.8;
+  }
+  .state.error b { color: var(--verm); }
+
+  footer {
+    text-align: center;
+    margin-top: 36px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="langs">World's Cup · Coupe du Monde · Copa del Mundo · Weltmeisterschaft</div>
+    <h1>DAD CUP</h1>
+    <div class="year">2026</div>
+    <div class="speedlines" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+    <div class="sub">Copa de los Papás</div>
+  </header>
+
+  <p class="updated" id="updated"></p>
+
+  <div id="live"></div>
+
+  <main class="board" aria-live="polite">
+    <div class="flagstrip" aria-hidden="true"></div>
+    <div class="board-title">Standings</div>
+    <div class="board-inner">
+      <div id="content"><div class="state">Checking the wires…</div></div>
+    </div>
+  </main>
+
+  <section class="key">
+    <h2>How points work</h2>
+    Group stage: <b>W = 3</b> · <b>D = 1</b> · L = 0<br>
+    Knockout wins: <b>R32 = 4</b> · <b>R16 = 5</b> · <b>QF = 6</b> · <b>SF = 7</b><br>
+    <b>3rd place match = 3</b> · <b>Champion = 8</b><br>
+    Each owner drafted 6 teams. Tap a name to see their squad.
+  </section>
+
+  <footer>Results live via TheSportsDB · points computed automatically</footer>
+</div>
+
+<script>
+/* ===================== THE DRAFT =====================
+   Hardcoded from the Dad Cup 2026 draft board.
+   Edit here if a name ever needs correcting.
+===================================================== */
+const DRAFT = [
+  ['Mexico','A','Justin'],            ['South Korea','A','Adam'],
+  ['South Africa','A','Michael'],     ['Czechia','A','Luke'],
+  ['Canada','B','Adam'],              ['Switzerland','B','Justin'],
+  ['Qatar','B','Luke'],               ['Bosnia-Herzegovina','B','Justin'],
+  ['Brazil','C','Andrew'],            ['Morocco','C','Arlan'],
+  ['Scotland','C','Trevor'],          ['Haiti','C','Justin'],
+  ['United States','D','Trevor'],     ['Turkey','D','Devon'],
+  ['Australia','D','Arlan'],          ['Paraguay','D','Luke'],
+  ['Germany','E','Adam'],             ['Ecuador','E','Arlan'],
+  ['Ivory Coast','E','Devon'],        ['Curaçao','E','Andrew'],
+  ['Netherlands','F','Trevor'],       ['Japan','F','Michael'],
+  ['Sweden','F','Trevor'],            ['Tunisia','F','Adam'],
+  ['Belgium','G','Devon'],            ['Iran','G','Michael'],
+  ['Egypt','G','Andrew'],             ['New Zealand','G','Adam'],
+  ['Spain','H','Arlan'],              ['Uruguay','H','Luke'],
+  ['Saudi Arabia','H','Devon'],       ['Cabo Verde','H','Trevor'],
+  ['France','I','Luke'],              ['Norway','I','Andrew'],
+  ['Senegal','I','Luke'],             ['Iraq','I','Arlan'],
+  ['Argentina','J','Michael'],        ['Algeria','J','Arlan'],
+  ['Austria','J','Adam'],             ['Jordan','J','Michael'],
+  ['Portugal','K','Devon'],           ['Colombia','K','Michael'],
+  ['Congo DR','K','Andrew'],          ['Uzbekistan','K','Trevor'],
+  ['England','L','Justin'],           ['Croatia','L','Andrew'],
+  ['Ghana','L','Justin'],             ['Panama','L','Devon'],
+];
+
+/* ================== SCORING RULES ================== */
+const PTS = { GS_WIN: 3, GS_DRAW: 1, R32: 4, R16: 5, QF: 6, SF: 7, THIRD: 3, FINAL: 8 };
+
+/* =================== DATA SOURCE ===================
+   TheSportsDB free API — FIFA World Cup is league 4429.
+   One request per refresh; no key management needed.
+=================================================== */
+const API_SEASONS = ['2026', '2026-2027'];
+const API_URL = s => `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=4429&s=${s}`;
+const REFRESH_EVERY_MS = 5 * 60 * 1000;
+
+/* ---------- team name normalization ---------- */
+const norm = s => (s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z]/g, '');
+
+const ALIASES = {
+  usa: 'United States', unitedstates: 'United States', unitedstatesofamerica: 'United States',
+  southkorea: 'South Korea', korearepublic: 'South Korea', koreasouth: 'South Korea',
+  czechia: 'Czechia', czechrepublic: 'Czechia',
+  bosniaherzegovina: 'Bosnia-Herzegovina', bosniaandherzegovina: 'Bosnia-Herzegovina', bosnia: 'Bosnia-Herzegovina',
+  ivorycoast: 'Ivory Coast', cotedivoire: 'Ivory Coast',
+  congodr: 'Congo DR', drcongo: 'Congo DR', democraticrepublicofcongo: 'Congo DR',
+  democraticrepublicofthecongo: 'Congo DR', congokinshasa: 'Congo DR',
+  caboverde: 'Cabo Verde', capeverde: 'Cabo Verde', capeverdeislands: 'Cabo Verde',
+  curacao: 'Curaçao',
+  iran: 'Iran', irniran: 'Iran', islamicrepublicofiran: 'Iran',
+  turkey: 'Turkey', turkiye: 'Turkey',
+};
+const TEAM_BY_KEY = {};
+DRAFT.forEach(([team]) => { TEAM_BY_KEY[norm(team)] = team; });
+function matchTeam(apiName) {
+  const k = norm(apiName);
+  if (TEAM_BY_KEY[k]) return TEAM_BY_KEY[k];
+  if (ALIASES[k] && TEAM_BY_KEY[norm(ALIASES[k])]) return ALIASES[k];
+  return null;
+}
+
+/* ---------- round classification ----------
+   intRound codes when present (125 QF / 150 SF / 160 3rd / 200 Final),
+   otherwise the official 2026 calendar windows. */
+function classifyRound(ev) {
+  const r = parseInt(ev.intRound, 10);
+  if (r === 125) return 'QF';
+  if (r === 150) return 'SF';
+  if (r === 160) return 'THIRD';
+  if (r === 200) return 'FINAL';
+  const d = ev.dateEvent || '';
+  if (d <= '2026-06-27') return 'GS';
+  if (d <= '2026-07-03') return 'R32';
+  if (d <= '2026-07-08') return 'R16';
+  if (d <= '2026-07-12') return 'QF';
+  if (d <= '2026-07-16') return 'SF';
+  if (d <= '2026-07-18') return 'THIRD';
+  return 'FINAL';
+}
+
+const FINISHED = new Set(['ft','aet','pen','matchfinished','finished','afterpens','afterextratime','ap']);
+const LIVE = new Set(['1h','2h','ht','et','bt','live','inprogress','inplay']);
+const statusKey = ev => norm(ev.strStatus);
+
+function isFinished(ev) {
+  if (ev.intHomeScore == null || ev.intAwayScore == null) return false;
+  const s = statusKey(ev);
+  if (FINISHED.has(s)) return true;
+  if (LIVE.has(s)) return false;
+  /* no usable status: trust scores if the match date has passed */
+  return (ev.dateEvent || '') < new Date().toISOString().slice(0, 10);
+}
+const isLive = ev => LIVE.has(statusKey(ev)) ||
+  (ev.intHomeScore != null && statusKey(ev) === '' && ev.dateEvent === new Date().toISOString().slice(0, 10));
+
+/* penalty shootout winner, best effort across possible API fields */
+function penaltyWinner(ev, home, away) {
+  const hp = parseInt(ev.intHomeScorePenalty ?? ev.intHomePenScore ?? ev.intHomeShootoutScore, 10);
+  const ap = parseInt(ev.intAwayScorePenalty ?? ev.intAwayPenScore ?? ev.intAwayShootoutScore, 10);
+  if (!isNaN(hp) && !isNaN(ap) && hp !== ap) return hp > ap ? home : away;
+  const txt = norm(ev.strResult);
+  if (txt) {
+    if (home && txt.includes(norm(home) + 'win')) return home;
+    if (away && txt.includes(norm(away) + 'win')) return away;
+  }
+  return null;
+}
+
+/* =================== SCORING ENGINE =================== */
+function buildStandings(events) {
+  const teams = {};
+  DRAFT.forEach(([team, group, owner]) => {
+    teams[team] = { team, group, owner, gs: [], ko: [], gsPts: 0, koPts: 0, pendingPen: false };
+  });
+
+  for (const ev of events) {
+    const home = matchTeam(ev.strHomeTeam);
+    const away = matchTeam(ev.strAwayTeam);
+    if (!home && !away) continue;
+    if (!isFinished(ev)) continue;
+
+    const hs = +ev.intHomeScore, as = +ev.intAwayScore;
+    const round = classifyRound(ev);
+
+    if (round === 'GS') {
+      if (home) addGS(teams[home], hs, as, ev, away || ev.strAwayTeam, true);
+      if (away) addGS(teams[away], as, hs, ev, home || ev.strHomeTeam, false);
+    } else {
+      let winner = hs > as ? home : as > hs ? away : penaltyWinner(ev, home, away);
+      const decidedOnPens = hs === as && winner != null;
+      const undecided = hs === as && winner == null;
+      for (const t of [home, away]) {
+        if (!t) continue;
+        const won = winner === t;
+        if (undecided) teams[t].pendingPen = true;
+        teams[t].ko.push({
+          round, won, pens: decidedOnPens, undecided,
+          label: `${ev.strHomeTeam} ${hs}–${as} ${ev.strAwayTeam}` +
+                 (decidedOnPens ? ' (pens)' : undecided ? ' (shootout result pending)' : ''),
+        });
+        if (won) teams[t].koPts += PTS[round];
+      }
+    }
+  }
+
+  function addGS(t, gf, ga, ev, opp, isHome) {
+    const res = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
+    t.gs.push({ res, label: `${res === 'W' ? 'beat' : res === 'D' ? 'drew' : 'lost to'} ${opp} ${gf}–${ga}` });
+    t.gsPts += res === 'W' ? PTS.GS_WIN : res === 'D' ? PTS.GS_DRAW : 0;
+  }
+
+  const owners = {};
+  Object.values(teams).forEach(t => {
+    const o = owners[t.owner] ||= { owner: t.owner, gs: 0, ko: 0, total: 0, squad: [] };
+    o.gs += t.gsPts; o.ko += t.koPts; o.total += t.gsPts + t.koPts;
+    o.squad.push(t);
+  });
+  Object.values(owners).forEach(o =>
+    o.squad.sort((a, b) => (b.gsPts + b.koPts) - (a.gsPts + a.koPts) || a.team.localeCompare(b.team)));
+  return Object.values(owners).sort((a, b) =>
+    b.total - a.total || b.ko - a.ko || a.owner.localeCompare(b.owner));
+}
+
+/* =================== RENDER =================== */
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const KO_TAG = { R32: '32', R16: '16', QF: 'QF', SF: 'SF', THIRD: '3rd', FINAL: '🏆' };
+
+function teamLineHTML(t) {
+  const gsPips = t.gs.map(m =>
+    `<span class="pip ${m.res.toLowerCase()}" title="${esc(m.label)}">${m.res}</span>`).join('');
+  const koPips = t.ko.map(m =>
+    `<span class="pip ko ${m.undecided ? 'pen' : m.won ? '' : 'l'}" title="${esc(m.label)}">${m.undecided ? '?' : KO_TAG[m.round]}</span>`).join('');
+  return `<div class="team-line">
+    <span class="team-name">${esc(t.team)} <span class="team-group">GRP ${t.group}</span></span>
+    <span class="pips">${gsPips}${koPips}</span>
+    <span class="team-pts">${t.gsPts + t.koPts}</span>
+  </div>`;
+}
+
+function render(standings) {
+  const rows = standings.map((o, i) => {
+    const pending = o.squad.some(t => t.pendingPen);
+    return `
+      <button class="row" data-i="${i}" aria-expanded="false">
+        <span class="rank r${i + 1}">${i + 1}</span>
+        <span>
+          <div class="owner">${esc(o.owner)}${pending ? ' ⚠' : ''}</div>
+          <div class="breakdown">GROUP ${o.gs} · KNOCKOUT ${o.ko}</div>
+        </span>
+        <span class="score">${o.total}</span>
+      </button>
+      <div class="sheet" id="sheet-${i}">
+        <div class="sheet-head"><span>${esc(o.owner)}'s squad</span><span>${o.total} pts</span></div>
+        ${o.squad.map(teamLineHTML).join('')}
+        ${pending ? `<div style="font-family:'Space Mono',monospace;font-size:10px;margin-top:8px;color:var(--faint);">⚠ a shootout result hasn't come through the feed yet — points for that match will appear once it does</div>` : ''}
+      </div>`;
+  }).join('');
+  document.getElementById('content').innerHTML = rows;
+  document.querySelectorAll('.row').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sheet = document.getElementById('sheet-' + btn.dataset.i);
+      const open = sheet.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open);
+    });
+  });
+}
+
+function renderLive(events) {
+  const live = events.filter(ev => isLive(ev) && (matchTeam(ev.strHomeTeam) || matchTeam(ev.strAwayTeam)));
+  document.getElementById('live').innerHTML = live.length ? `
+    <div class="live-strip"><b><span class="live-dot"></span>LIVE</b>${
+      live.map(ev => `${esc(ev.strHomeTeam)} ${ev.intHomeScore ?? 0}–${ev.intAwayScore ?? 0} ${esc(ev.strAwayTeam)}`).join(' · ')
+    }</div>` : '';
+}
+
+function showError() {
+  document.getElementById('content').innerHTML = `
+    <div class="state error">
+      <b>Couldn't reach the live results feed.</b><br><br>
+      If you're viewing this inside the Claude app preview, that's the cause —
+      the preview blocks all network requests.<br>
+      <b>Download the file and open it in Chrome/Safari</b>, or host it (Netlify, GitHub Pages).<br><br>
+      Otherwise it's likely a momentary API hiccup — hit refresh.
+    </div>`;
+}
+
+/* =================== LOAD LOOP =================== */
+async function fetchEvents() {
+  let lastErr;
+  for (const season of API_SEASONS) {
+    try {
+      const resp = await fetch(API_URL(season));
+      if (!resp.ok) throw new Error('http ' + resp.status);
+      const data = await resp.json();
+      if (data && Array.isArray(data.events) && data.events.length) return data.events;
+      throw new Error('empty season ' + season);
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('no data');
+}
+
+async function load() {
+  try {
+    const events = await fetchEvents();
+    renderLive(events);
+    render(buildStandings(events));
+    const now = new Date();
+    document.getElementById('updated').innerHTML =
+      `UPDATED ${now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} <button id="refresh">↻ REFRESH</button>`;
+  } catch (e) {
+    showError();
+    document.getElementById('updated').innerHTML = `<button id="refresh">↻ TRY AGAIN</button>`;
+  }
+  document.getElementById('refresh').addEventListener('click', load);
+}
+
+load();
+setInterval(load, REFRESH_EVERY_MS);
+</script>
+</body>
+</html>
