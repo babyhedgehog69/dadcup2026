@@ -171,15 +171,87 @@
       var(--cobalt) 52px 78px, var(--green) 78px 104px);
   }
 
-  .board-title {
+  /* tab bar — poster ticket stubs */
+  .tabs { display: flex; border-bottom: 2px solid var(--ink); }
+  .tab {
+    flex: 1;
     font-family: 'Anton', sans-serif;
     font-size: 15px;
-    letter-spacing: 0.45em;
+    letter-spacing: 0.3em;
     text-transform: uppercase;
     text-align: center;
-    padding: 14px 0 12px 0.45em;
-    border-bottom: 2px solid var(--ink);
+    padding: 14px 0 12px 0.3em;
+    background: var(--paper-hi);
+    color: var(--ink);
+    border: none;
+    border-right: 2px solid var(--ink);
+    cursor: pointer;
   }
+  .tab:last-child { border-right: none; }
+  .tab.active { background: var(--ink); color: var(--paper-hi); }
+  .tab:focus-visible { outline: 2px solid var(--cobalt); outline-offset: -3px; }
+
+  /* games list */
+  .day-head {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--faint);
+    border-bottom: 1px dashed var(--rule);
+    padding: 16px 2px 6px;
+    margin-top: 6px;
+  }
+  .day-head:first-child { margin-top: 0; }
+  .game { padding: 14px 2px; border-bottom: 1px solid var(--rule); }
+  .game:last-child { border-bottom: none; }
+  .game-match { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .g-side { flex: 1; min-width: 0; text-align: center; }
+  .g-flag { font-size: 30px; line-height: 1; }
+  .g-abbr {
+    font-family: 'Anton', sans-serif;
+    font-size: 19px;
+    letter-spacing: 0.05em;
+    line-height: 1.1;
+    margin-top: 3px;
+  }
+  .g-owner {
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .g-pts {
+    font-family: 'Anton', sans-serif;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--paper-hi);
+    background: var(--verm);
+    padding: 3px 6px 2px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .g-pts.o1 { background: var(--gold);   color: var(--ink); }
+  .g-pts.o2 { background: var(--silver); color: var(--ink); }
+  .g-pts.o3 { background: var(--bronze); }
+  .g-mid { text-align: center; flex-shrink: 0; min-width: 84px; }
+  .g-vs { font-family: 'Anton', sans-serif; color: var(--faint); font-size: 14px; }
+  .game-time {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    margin-top: 5px;
+    white-space: nowrap;
+  }
+  .game-live { color: var(--verm); font-weight: 700; }
+  .games-empty { text-align: center; padding: 30px 10px; color: var(--faint); font-size: 14px; line-height: 1.6; }
 
   .board-inner { padding: 6px 14px 14px; }
 
@@ -369,9 +441,17 @@
 
   <main class="board" aria-live="polite">
     <div class="flagstrip" aria-hidden="true"></div>
-    <div class="board-title">Standings</div>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="standings" role="tab" aria-selected="true">Standings</button>
+      <button class="tab" data-tab="games" role="tab" aria-selected="false">Games</button>
+    </div>
     <div class="board-inner">
-      <div id="content"><div class="state">Checking the wires…</div></div>
+      <div id="view-standings">
+        <div id="content"><div class="state">Checking the wires…</div></div>
+      </div>
+      <div id="view-games" hidden>
+        <div id="games"><div class="state">Loading the schedule…</div></div>
+      </div>
     </div>
   </main>
 
@@ -455,6 +535,38 @@ function matchTeam(apiName) {
   if (ALIASES[k] && TEAM_BY_KEY[norm(ALIASES[k])]) return ALIASES[k];
   return null;
 }
+const OWNER_BY_TEAM = {};
+DRAFT.forEach(([team, , owner]) => { OWNER_BY_TEAM[team] = owner; });
+const ownerOf = t => OWNER_BY_TEAM[t] || null;
+const TZ = 'America/Los_Angeles';
+
+/* [FIFA abbreviation, flag emoji] per drafted team */
+const TEAM_META = {
+  'Mexico': ['MEX','🇲🇽'],            'South Korea': ['KOR','🇰🇷'],
+  'South Africa': ['RSA','🇿🇦'],      'Czechia': ['CZE','🇨🇿'],
+  'Canada': ['CAN','🇨🇦'],            'Switzerland': ['SUI','🇨🇭'],
+  'Qatar': ['QAT','🇶🇦'],             'Bosnia-Herzegovina': ['BIH','🇧🇦'],
+  'Brazil': ['BRA','🇧🇷'],            'Morocco': ['MAR','🇲🇦'],
+  'Scotland': ['SCO','🏴󠁧󠁢󠁳󠁣󠁴󠁿'],          'Haiti': ['HAI','🇭🇹'],
+  'United States': ['USA','🇺🇸'],     'Turkey': ['TUR','🇹🇷'],
+  'Australia': ['AUS','🇦🇺'],         'Paraguay': ['PAR','🇵🇾'],
+  'Germany': ['GER','🇩🇪'],           'Ecuador': ['ECU','🇪🇨'],
+  'Ivory Coast': ['CIV','🇨🇮'],       'Curaçao': ['CUW','🇨🇼'],
+  'Netherlands': ['NED','🇳🇱'],       'Japan': ['JPN','🇯🇵'],
+  'Sweden': ['SWE','🇸🇪'],            'Tunisia': ['TUN','🇹🇳'],
+  'Belgium': ['BEL','🇧🇪'],           'Iran': ['IRN','🇮🇷'],
+  'Egypt': ['EGY','🇪🇬'],             'New Zealand': ['NZL','🇳🇿'],
+  'Spain': ['ESP','🇪🇸'],             'Uruguay': ['URU','🇺🇾'],
+  'Saudi Arabia': ['KSA','🇸🇦'],      'Cabo Verde': ['CPV','🇨🇻'],
+  'France': ['FRA','🇫🇷'],            'Norway': ['NOR','🇳🇴'],
+  'Senegal': ['SEN','🇸🇳'],           'Iraq': ['IRQ','🇮🇶'],
+  'Argentina': ['ARG','🇦🇷'],         'Algeria': ['ALG','🇩🇿'],
+  'Austria': ['AUT','🇦🇹'],           'Jordan': ['JOR','🇯🇴'],
+  'Portugal': ['POR','🇵🇹'],          'Colombia': ['COL','🇨🇴'],
+  'Congo DR': ['COD','🇨🇩'],          'Uzbekistan': ['UZB','🇺🇿'],
+  'England': ['ENG','🏴󠁧󠁢󠁥󠁮󠁧󠁿'],          'Croatia': ['CRO','🇭🇷'],
+  'Ghana': ['GHA','🇬🇭'],             'Panama': ['PAN','🇵🇦'],
+};
 
 /* ---------- round classification ----------
    intRound codes when present (125 QF / 150 SF / 160 3rd / 200 Final),
@@ -606,6 +718,81 @@ function render(standings) {
   });
 }
 
+/* parse an event's kickoff into a Date + whether a real time is known */
+function eventDate(ev) {
+  const ts = ev.strTimestamp;
+  if (ts && !ts.startsWith('0000')) {
+    const iso = /[Z+]/.test(ts) ? ts : ts.replace(' ', 'T') + 'Z';
+    const d = new Date(iso); if (!isNaN(d)) return { date: d, hasTime: true };
+  }
+  if (ev.dateEvent && ev.strTime && ev.strTime !== '00:00:00') {
+    const d = new Date(`${ev.dateEvent}T${ev.strTime}Z`); if (!isNaN(d)) return { date: d, hasTime: true };
+  }
+  if (ev.dateEvent) {
+    const d = new Date(`${ev.dateEvent}T12:00:00Z`); if (!isNaN(d)) return { date: d, hasTime: false };
+  }
+  return null;
+}
+
+function renderGames(events, standings) {
+  const upcoming = events
+    .filter(ev => !isFinished(ev) && (matchTeam(ev.strHomeTeam) || matchTeam(ev.strAwayTeam)))
+    .map(ev => ({ ev, when: eventDate(ev) }))
+    .filter(x => x.when)
+    .sort((a, b) => a.when.date - b.when.date)
+    .slice(0, 24);
+
+  const host = document.getElementById('games');
+  if (!upcoming.length) {
+    host.innerHTML = `<div class="games-empty">No games on the board right now.<br>Check back when the next round is set.</div>`;
+    return;
+  }
+
+  const totalOf = {}, rankOf = {};
+  standings.forEach((o, i) => { totalOf[o.owner] = o.total; rankOf[o.owner] = i + 1; });
+  const chip = owner => {
+    const r = rankOf[owner];
+    const cls = r === 1 ? 'o1' : r === 2 ? 'o2' : r === 3 ? 'o3' : '';
+    return `<span class="g-pts ${cls}">${totalOf[owner] ?? 0}</span>`;
+  };
+  const side = (team, raw, cls) => {
+    const owner = team ? ownerOf(team) : null;
+    const meta = team ? TEAM_META[team] : null;
+    const head = meta
+      ? `<div class="g-flag">${meta[1]}</div><div class="g-abbr">${meta[0]}</div>`
+      : `<div class="g-abbr">${esc(raw)}</div>`;
+    return `<div class="g-side${cls}">
+      ${head}
+      ${owner ? `<div class="g-owner">${esc(owner)} ${chip(owner)}</div>`
+              : `<div class="g-owner" style="color:var(--faint)">—</div>`}
+    </div>`;
+  };
+
+  let html = '', lastDay = '';
+  for (const { ev, when } of upcoming) {
+    const dayLabel = when.date.toLocaleDateString('en-US',
+      { weekday: 'short', month: 'short', day: 'numeric', timeZone: TZ });
+    if (dayLabel !== lastDay) { html += `<div class="day-head">${dayLabel}</div>`; lastDay = dayLabel; }
+
+    const live = isLive(ev);
+    const timeLabel = when.hasTime
+      ? when.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ }) + ' PT'
+      : 'TBD';
+    const mid = live
+      ? `<div class="g-vs game-live">● LIVE</div>`
+      : `<div class="g-vs">v</div><div class="game-time">${timeLabel}</div>`;
+
+    html += `<div class="game">
+      <div class="game-match">
+        ${side(matchTeam(ev.strHomeTeam), ev.strHomeTeam, '')}
+        <div class="g-mid">${mid}</div>
+        ${side(matchTeam(ev.strAwayTeam), ev.strAwayTeam, '')}
+      </div>
+    </div>`;
+  }
+  host.innerHTML = html;
+}
+
 function renderLive(events) {
   const live = events.filter(ev => isLive(ev) && (matchTeam(ev.strHomeTeam) || matchTeam(ev.strAwayTeam)));
   document.getElementById('live').innerHTML = live.length ? `
@@ -643,17 +830,35 @@ async function fetchEvents() {
 async function load() {
   try {
     const events = await fetchEvents();
+    const standings = buildStandings(events);
     renderLive(events);
-    render(buildStandings(events));
+    render(standings);
+    renderGames(events, standings);
     const now = new Date();
     document.getElementById('updated').innerHTML =
       `UPDATED ${now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} <button id="refresh">↻ REFRESH</button>`;
   } catch (e) {
     showError();
+    document.getElementById('games').innerHTML =
+      `<div class="games-empty">Couldn't load the schedule.<br>Hit refresh, or open the page in a real browser.</div>`;
     document.getElementById('updated').innerHTML = `<button id="refresh">↻ TRY AGAIN</button>`;
   }
   document.getElementById('refresh').addEventListener('click', load);
 }
+
+/* tab switching */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const which = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => {
+      const on = t === tab;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on);
+    });
+    document.getElementById('view-standings').hidden = which !== 'standings';
+    document.getElementById('view-games').hidden = which !== 'games';
+  });
+});
 
 load();
 setInterval(load, REFRESH_EVERY_MS);
