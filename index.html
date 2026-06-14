@@ -634,13 +634,27 @@ function isFinished(ev) {
   const s = statusKey(ev);
   const raw = (ev.strStatus || '').trim();
   if (FINISHED.has(s)) return true;
-  if (LIVE.has(s) || /^\d{1,3}(\+\d{0,2})?'?$/.test(raw)) return false;
+  if (LIVE.has(s) || /^\d{1,3}(\+\d{0,2})?'?$/.test(raw)) {
+    /* feed still says live/minute, but if kickoff was long ago, count it as done */
+    return !withinLiveWindow(ev);
+  }
   /* no usable status: trust scores if the match date has passed */
   return (ev.dateEvent || '') < new Date().toISOString().slice(0, 10);
 }
 const PHASE = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'LIVE', 'INPROGRESS', 'INPLAY']);
+/* a match older than this since kickoff can't still be "live" — guards against
+   the free feed leaving a finished game stuck on a minute/half status */
+const LIVE_WINDOW_MS = 3.5 * 60 * 60 * 1000;
+function withinLiveWindow(ev) {
+  const w = eventDate(ev);
+  if (!w) return true;                 // unknown time → don't block
+  const age = Date.now() - w.date.getTime();
+  return age >= -10 * 60 * 1000 && age <= LIVE_WINDOW_MS; // up to 10 min early, 3.5h after
+}
 const isLive = ev => {
   const raw = (ev.strStatus || '').trim().toUpperCase();
+  if (FINISHED.has(statusKey(ev))) return false; // explicit FT/AET/PEN always wins
+  if (!withinLiveWindow(ev)) return false;        // too long since kickoff → treat as done
   if (PHASE.has(raw)) return true;
   if (LIVE.has(statusKey(ev))) return true;
   if (/^\d{1,3}(\+\d{0,2})?'?$/.test(raw)) return true; // minute status, e.g. "67" or "90+2"
