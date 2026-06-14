@@ -132,19 +132,33 @@
     color: var(--paper-hi);
     border: 3px solid var(--ink);
     box-shadow: 5px 5px 0 var(--ink);
-    padding: 9px 14px;
-    margin-bottom: 18px;
-    font-family: 'Jost', sans-serif;
-    font-weight: 600;
-    font-size: 13px;
-    letter-spacing: 0.05em;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
     text-align: center;
   }
-  .live-strip b {
+  .live-badge {
+    font-family: 'Anton', sans-serif;
+    letter-spacing: 0.18em;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .live-score {
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+  }
+  .live-score b {
     font-family: 'Anton', sans-serif;
     font-weight: 400;
-    letter-spacing: 0.25em;
-    margin-right: 10px;
+    font-size: 19px;
+    margin: 0 7px;
+    vertical-align: -1px;
   }
   .live-dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -251,6 +265,14 @@
     white-space: nowrap;
   }
   .game-live { color: var(--verm); font-weight: 700; }
+  .game-venue {
+    font-family: 'Jost', sans-serif;
+    font-size: 12px;
+    color: var(--faint);
+    text-align: center;
+    margin-top: 9px;
+    letter-spacing: 0.02em;
+  }
   .games-empty { text-align: center; padding: 30px 10px; color: var(--faint); font-size: 14px; line-height: 1.6; }
 
   .board-inner { padding: 6px 14px 14px; }
@@ -594,13 +616,34 @@ const statusKey = ev => norm(ev.strStatus);
 function isFinished(ev) {
   if (ev.intHomeScore == null || ev.intAwayScore == null) return false;
   const s = statusKey(ev);
+  const raw = (ev.strStatus || '').trim();
   if (FINISHED.has(s)) return true;
-  if (LIVE.has(s)) return false;
+  if (LIVE.has(s) || /^\d{1,3}(\+\d{0,2})?'?$/.test(raw)) return false;
   /* no usable status: trust scores if the match date has passed */
   return (ev.dateEvent || '') < new Date().toISOString().slice(0, 10);
 }
-const isLive = ev => LIVE.has(statusKey(ev)) ||
-  (ev.intHomeScore != null && statusKey(ev) === '' && ev.dateEvent === new Date().toISOString().slice(0, 10));
+const PHASE = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'LIVE', 'INPROGRESS', 'INPLAY']);
+const isLive = ev => {
+  const raw = (ev.strStatus || '').trim().toUpperCase();
+  if (PHASE.has(raw)) return true;
+  if (LIVE.has(statusKey(ev))) return true;
+  if (/^\d{1,3}(\+\d{0,2})?'?$/.test(raw)) return true; // minute status, e.g. "67" or "90+2"
+  if (raw === '' && ev.intHomeScore != null && ev.dateEvent === new Date().toISOString().slice(0, 10) && !isFinished(ev)) return true;
+  return false;
+};
+
+/* a short live-clock label: minute when available, else phase */
+function liveClock(ev) {
+  const p = (ev.strProgress != null ? String(ev.strProgress) : '').trim();
+  if (/\d/.test(p)) return p.replace(/[^\d+]/g, '') + "'";
+  const raw = (ev.strStatus || '').trim().toUpperCase();
+  if (/^\d{1,3}(\+\d{0,2})?'?$/.test(raw)) return raw.replace(/[^\d+]/g, '') + "'";
+  if (raw === 'HT') return 'HALF';
+  if (raw === '1H') return '1ST';
+  if (raw === '2H') return '2ND';
+  if (raw === 'ET' || raw === 'BT') return 'EXTRA';
+  return 'LIVE';
+}
 
 /* penalty shootout winner, best effort across possible API fields */
 function penaltyWinner(ev, home, away) {
@@ -779,8 +822,10 @@ function renderGames(events, standings) {
       ? when.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ }) + ' PT'
       : 'TBD';
     const mid = live
-      ? `<div class="g-vs game-live">● LIVE</div>`
+      ? `<div class="g-vs game-live">${ev.intHomeScore ?? 0}–${ev.intAwayScore ?? 0}</div><div class="game-time game-live">● ${liveClock(ev)}</div>`
       : `<div class="g-vs">v</div><div class="game-time">${timeLabel}</div>`;
+
+    const venue = [ev.strVenue, ev.strCity].filter(v => v && v.trim()).join(' · ');
 
     html += `<div class="game">
       <div class="game-match">
@@ -788,6 +833,7 @@ function renderGames(events, standings) {
         <div class="g-mid">${mid}</div>
         ${side(matchTeam(ev.strAwayTeam), ev.strAwayTeam, '')}
       </div>
+      ${venue ? `<div class="game-venue">📍 ${esc(venue)}</div>` : ''}
     </div>`;
   }
   host.innerHTML = html;
@@ -795,10 +841,17 @@ function renderGames(events, standings) {
 
 function renderLive(events) {
   const live = events.filter(ev => isLive(ev) && (matchTeam(ev.strHomeTeam) || matchTeam(ev.strAwayTeam)));
-  document.getElementById('live').innerHTML = live.length ? `
-    <div class="live-strip"><b><span class="live-dot"></span>LIVE</b>${
-      live.map(ev => `${esc(ev.strHomeTeam)} ${ev.intHomeScore ?? 0}–${ev.intAwayScore ?? 0} ${esc(ev.strAwayTeam)}`).join(' · ')
-    }</div>` : '';
+  const tag = (team, raw) => {
+    const m = team ? TEAM_META[team] : null;
+    return m ? `${m[1]} ${m[0]}` : esc(raw);
+  };
+  document.getElementById('live').innerHTML = live.map(ev => {
+    const h = matchTeam(ev.strHomeTeam), a = matchTeam(ev.strAwayTeam);
+    return `<div class="live-strip">
+      <span class="live-badge"><span class="live-dot"></span>LIVE · ${liveClock(ev)}</span>
+      <span class="live-score">${tag(h, ev.strHomeTeam)} <b>${ev.intHomeScore ?? 0}–${ev.intAwayScore ?? 0}</b> ${tag(a, ev.strAwayTeam)}</span>
+    </div>`;
+  }).join('');
 }
 
 function showError() {
