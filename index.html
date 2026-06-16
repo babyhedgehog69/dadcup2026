@@ -540,12 +540,14 @@ const DRAFT = [
 const PTS = { GS_WIN: 3, GS_DRAW: 1, R32: 4, R16: 5, QF: 6, SF: 7, THIRD: 3, FINAL: 8 };
 
 /* =================== DATA SOURCE ===================
-   TheSportsDB free API — FIFA World Cup is league 4429.
-   One request per refresh; no key management needed.
-=================================================== */
-const API_SEASONS = ['2026', '2026-2027'];
-const API_URL = s => `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=4429&s=${s}`;
-const REFRESH_EVERY_MS = 5 * 60 * 1000;
+   TheSportsDB Premium — FIFA World Cup is league 4429, season 2025-2026.
+   Key is baked in below. To rotate it, change this one line. */
+const API_KEY = '1433720540';
+
+const API_SEASONS = ['2025-2026', '2026'];
+const SCHED_URL = s => `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsseason.php?id=4429&s=${s}`;
+const LIVE_URL  = `https://www.thesportsdb.com/api/v2/json/livescore/soccer`;
+const REFRESH_EVERY_MS = 2 * 60 * 1000; // premium livescores update ~every 2 min
 
 /* ---------- team name normalization ---------- */
 const norm = s => (s || '')
@@ -652,6 +654,7 @@ function withinLiveWindow(ev) {
   return age >= -10 * 60 * 1000 && age <= LIVE_WINDOW_MS; // up to 10 min early, 3.5h after
 }
 const isLive = ev => {
+  if (ev._liveFeed && !FINISHED.has(statusKey(ev))) return true; // came from the live feed
   const raw = (ev.strStatus || '').trim().toUpperCase();
   if (FINISHED.has(statusKey(ev))) return false; // explicit FT/AET/PEN always wins
   if (!withinLiveWindow(ev)) return false;        // too long since kickoff → treat as done
@@ -896,18 +899,69 @@ function showError() {
 }
 
 /* =================== LOAD LOOP =================== */
-async function fetchEvents() {
+
+/* schedule/results — validate it's really World Cup data, not the demo fallback */
+async function fetchSchedule() {
   let lastErr;
   for (const season of API_SEASONS) {
     try {
-      const resp = await fetch(API_URL(season));
+      const resp = await fetch(SCHED_URL(season));
       if (!resp.ok) throw new Error('http ' + resp.status);
       const data = await resp.json();
-      if (data && Array.isArray(data.events) && data.events.length) return data.events;
-      throw new Error('empty season ' + season);
+      const evs = data && Array.isArray(data.events) ? data.events : null;
+      if (!evs || !evs.length) throw new Error('empty ' + season);
+      // reject if it's not the World Cup (free-key demo returns EPL etc.)
+      const wc = evs.filter(e => String(e.idLeague) === '4429' ||
+                                 /world cup/i.test(e.strLeague || ''));
+      const use = wc.length ? wc : evs;
+      // sanity: at least some teams should match our draft
+      if (use.some(e => matchTeam(e.strHomeTeam) || matchTeam(e.strAwayTeam))) return use;
+      throw new Error('no WC teams in ' + season);
     } catch (e) { lastErr = e; }
   }
-  throw lastErr || new Error('no data');
+  throw lastErr || new Error('no schedule');
+}
+
+/* live in-play scores (premium v2) — all soccer, we filter to WC by team match.
+   Never fatal: if it fails, we just show the schedule without live overlay. */
+async function fetchLive() {
+  try {
+    const resp = await fetch(LIVE_URL, { headers: { 'X-API-KEY': API_KEY } });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const arr = (data && (data.livescore || data.events || data.Events)) || [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+
+/* overlay live scores/status onto the matching scheduled events */
+function mergeLive(schedule, live) {
+  if (!live.length) return schedule;
+  const liveById = {};
+  const liveByPair = {};
+  for (const lv of live) {
+    if (lv.idEvent) liveById[String(lv.idEvent)] = lv;
+    const h = matchTeam(lv.strHomeTeam), a = matchTeam(lv.strAwayTeam);
+    if (h && a) liveByPair[h + '|' + a] = lv;
+  }
+  return schedule.map(ev => {
+    const h = matchTeam(ev.strHomeTeam), a = matchTeam(ev.strAwayTeam);
+    const lv = liveById[String(ev.idEvent)] || (h && a && liveByPair[h + '|' + a]);
+    if (!lv) return ev;
+    return {
+      ...ev,
+      _liveFeed: true,
+      intHomeScore: lv.intHomeScore ?? ev.intHomeScore,
+      intAwayScore: lv.intAwayScore ?? ev.intAwayScore,
+      strStatus: lv.strStatus || lv.strProgress || ev.strStatus,
+      strProgress: lv.strProgress ?? ev.strProgress,
+    };
+  });
+}
+
+async function fetchEvents() {
+  const [schedule, live] = await Promise.all([fetchSchedule(), fetchLive()]);
+  return mergeLive(schedule, live);
 }
 
 async function load() {
