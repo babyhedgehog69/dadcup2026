@@ -1112,7 +1112,7 @@ function renderBracket(events) {
   const memo = {};
   let html = '';
   for (const [key, label] of KO_ROUNDS) {
-    if (key === 'THIRD') continue; // third-place shown via results, not the main tree
+    if (key === 'THIRD' || key === 'R32') continue; // R32 lives on the Games tab; third place shown via results
     const matches = MATCHES_IN[key];
     if (!matches) continue;
     html += `<div class="bk-round"><div class="bk-round-label">${label}</div>`;
