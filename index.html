@@ -372,6 +372,17 @@
     text-align: right;
     padding: 0 11px 7px;
   }
+  .bk-team-cand { flex-wrap: wrap; gap: 6px; }
+  .bk-winlbl {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .bk-cand { font-size: 19px; line-height: 1; display: inline-flex; align-items: center; gap: 4px; }
+  .bk-cand-abbr { font-family: 'Anton', sans-serif; font-size: 14px; letter-spacing: 0.03em; color: var(--ink); }
+  .bk-or { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--faint); margin: 0 2px; }
 
   .board-inner { padding: 6px 14px 14px; }
 
@@ -1081,30 +1092,50 @@ function resolveWinner(matchNo, events, memo) {
   return win;
 }
 
-/* the two team-slots feeding a match: resolved team name, or a "Win M.." label */
+/* every team that could still fill a slot (collapses to 1 once decided) */
+function candidates(matchNo, events, memo) {
+  const w = resolveWinner(matchNo, events, memo);
+  if (w) return [w];
+  if (R32[matchNo]) return R32[matchNo].slice();
+  const [fa, fb] = FEED[matchNo] || [];
+  if (fa == null) return [];
+  return [...candidates(fa, events, memo), ...candidates(fb, events, memo)];
+}
+
+/* the two slots feeding a match: a resolved team, or the list of candidates */
 function slotsFor(matchNo, events, memo) {
   if (R32[matchNo]) return R32[matchNo].map(t => ({ team: t }));
   const [fa, fb] = FEED[matchNo] || [];
   return [fa, fb].map(fm => {
     const w = resolveWinner(fm, events, memo);
-    return w ? { team: w } : { label: `Win M${fm}` };
+    return w ? { team: w } : { candidates: candidates(fm, events, memo) };
   });
 }
 
-function bkSlot(slot, winTeam, events) {
-  if (slot.label) {
-    return `<div class="bk-team"><span class="bk-abbr bk-tbd">${esc(slot.label)}</span></div>`;
+function bkSlot(slot, winTeam) {
+  if (slot.team) {
+    const team = slot.team, meta = TEAM_META[team], owner = ownerOf(team);
+    const isWin = winTeam && winTeam === team;
+    const head = meta
+      ? `<span class="bk-flag">${meta[1]}</span><span class="bk-abbr">${meta[0]}</span>`
+      : `<span class="bk-abbr bk-tbd">${esc(team)}</span>`;
+    return `<div class="bk-team${isWin ? ' bk-win' : ''}">
+      ${head}${owner ? `<span class="bk-owner">${esc(owner)}</span>` : ''}
+    </div>`;
   }
-  const team = slot.team;
-  const meta = TEAM_META[team];
-  const owner = ownerOf(team);
-  const isWin = winTeam && winTeam === team;
-  const head = meta
-    ? `<span class="bk-flag">${meta[1]}</span><span class="bk-abbr">${meta[0]}</span>`
-    : `<span class="bk-abbr bk-tbd">${esc(team)}</span>`;
-  return `<div class="bk-team${isWin ? ' bk-win' : ''}">
-    ${head}${owner ? `<span class="bk-owner">${esc(owner)}</span>` : ''}
-  </div>`;
+  const cands = slot.candidates || [];
+  if (!cands.length) return `<div class="bk-team"><span class="bk-abbr bk-tbd">TBD</span></div>`;
+  if (cands.length <= 4) {
+    const showAbbr = cands.length <= 2;
+    const inner = cands.map(t => {
+      const m = TEAM_META[t];
+      return m
+        ? `<span class="bk-cand">${m[1]}${showAbbr ? ` <span class="bk-cand-abbr">${m[0]}</span>` : ''}</span>`
+        : `<span class="bk-cand">${esc(t)}</span>`;
+    }).join('<span class="bk-or">or</span>');
+    return `<div class="bk-team bk-team-cand"><span class="bk-winlbl">winner</span>${inner}</div>`;
+  }
+  return `<div class="bk-team"><span class="bk-abbr bk-tbd">${cands.length} still in</span></div>`;
 }
 
 function renderBracket(events) {
@@ -1134,7 +1165,7 @@ function renderBracket(events) {
         pens = (+ev.intHomeScore === +ev.intAwayScore) && win != null;
       }
       const row = (slot, score) => {
-        const base = bkSlot(slot, win, events);
+        const base = bkSlot(slot, win);
         return score !== '' && score != null
           ? base.replace('</div>', `<span class="bk-score">${score}</span></div>`)
           : base;
