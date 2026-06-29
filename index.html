@@ -1015,34 +1015,133 @@ function bkTeam(ev, isHome, win) {
   </div>`;
 }
 
+/* =================== BRACKET STRUCTURE ===================
+   The 2026 knockout bracket is fixed and published in advance. We hardcode the
+   R32 pairings (match 73–88) and the feed-forward map, then resolve winners from
+   live results so you can see who a qualified team might play next.
+   R32 pairings are the confirmed bracket (CBS/FIFA, June 2026). */
+const R32 = {
+  73: ['South Africa', 'Canada'],     74: ['Brazil', 'Japan'],
+  75: ['Netherlands', 'Morocco'],     76: ['Germany', 'Paraguay'],
+  77: ['Mexico', 'Ecuador'],          78: ['France', 'Sweden'],
+  79: ['Ivory Coast', 'Norway'],      80: ['Spain', 'Austria'],
+  81: ['England', 'Congo DR'],        82: ['United States', 'Bosnia-Herzegovina'],
+  83: ['Belgium', 'Senegal'],         84: ['Switzerland', 'Algeria'],
+  85: ['Argentina', 'Cabo Verde'],    86: ['Portugal', 'Croatia'],
+  87: ['Colombia', 'Ghana'],          88: ['Australia', 'Egypt'],
+};
+/* match -> [feeder match A, feeder match B] for later rounds */
+const FEED = {
+  // Round of 16
+  89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+  93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],
+  // Quarter-finals
+  97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],
+  // Semi-finals
+  101: [97, 98], 102: [99, 100],
+  // Final
+  104: [101, 102],
+};
+const ROUND_OF = m => (m <= 88 ? 'R32' : m <= 96 ? 'R16' : m <= 100 ? 'QF' : m <= 102 ? 'SF' : 'FINAL');
+const MATCHES_IN = { R32: [73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88],
+                     R16: [89,90,91,92,93,94,95,96], QF: [97,98,99,100], SF: [101,102], FINAL: [104] };
+
+/* find the played event for a given R32 match (by its two teams) */
+function eventForMatch(matchNo, events) {
+  const pair = R32[matchNo];
+  if (!pair) return null;
+  const [t1, t2] = pair;
+  return events.find(ev => {
+    const h = matchTeam(ev.strHomeTeam), a = matchTeam(ev.strAwayTeam);
+    return (h === t1 && a === t2) || (h === t2 && a === t1);
+  }) || null;
+}
+
+/* resolve the winning team name for any match number, recursively. null if undecided. */
+function resolveWinner(matchNo, events, memo) {
+  if (matchNo in memo) return memo[matchNo];
+  let win = null;
+  if (R32[matchNo]) {
+    const ev = eventForMatch(matchNo, events);
+    win = ev ? koWinner(ev) : null;
+  } else if (FEED[matchNo]) {
+    // winner comes from a feeder match's played event (API may also carry it directly)
+    const [fa, fb] = FEED[matchNo];
+    // try to find an actual event for this later-round match by its resolved teams
+    const ta = resolveWinner(fa, events, memo), tb = resolveWinner(fb, events, memo);
+    if (ta && tb) {
+      const ev = events.find(e => {
+        const h = matchTeam(e.strHomeTeam), a = matchTeam(e.strAwayTeam);
+        return (h === ta && a === tb) || (h === tb && a === ta);
+      });
+      if (ev) win = koWinner(ev);
+    }
+  }
+  memo[matchNo] = win;
+  return win;
+}
+
+/* the two team-slots feeding a match: resolved team name, or a "Win M.." label */
+function slotsFor(matchNo, events, memo) {
+  if (R32[matchNo]) return R32[matchNo].map(t => ({ team: t }));
+  const [fa, fb] = FEED[matchNo] || [];
+  return [fa, fb].map(fm => {
+    const w = resolveWinner(fm, events, memo);
+    return w ? { team: w } : { label: `Win M${fm}` };
+  });
+}
+
+function bkSlot(slot, winTeam, events) {
+  if (slot.label) {
+    return `<div class="bk-team"><span class="bk-abbr bk-tbd">${esc(slot.label)}</span></div>`;
+  }
+  const team = slot.team;
+  const meta = TEAM_META[team];
+  const owner = ownerOf(team);
+  const isWin = winTeam && winTeam === team;
+  const head = meta
+    ? `<span class="bk-flag">${meta[1]}</span><span class="bk-abbr">${meta[0]}</span>`
+    : `<span class="bk-abbr bk-tbd">${esc(team)}</span>`;
+  return `<div class="bk-team${isWin ? ' bk-win' : ''}">
+    ${head}${owner ? `<span class="bk-owner">${esc(owner)}</span>` : ''}
+  </div>`;
+}
+
 function renderBracket(events) {
   const host = document.getElementById('bracket');
-  const byRound = {};
-  for (const ev of events) {
-    const r = classifyRound(ev);
-    if (r === 'GS') continue;
-    (byRound[r] ||= []).push(ev);
-  }
-  if (!KO_ROUNDS.some(([k]) => byRound[k] && byRound[k].length)) {
-    host.innerHTML = `<div class="games-empty">The bracket fills in once the group stage wraps<br>and the Round of 32 is set.</div>`;
-    return;
-  }
+  const memo = {};
   let html = '';
   for (const [key, label] of KO_ROUNDS) {
-    const games = byRound[key];
-    if (!games || !games.length) continue;
-    games.sort((x, y) => {
-      const dx = eventDate(x), dy = eventDate(y);
-      return (dx ? dx.date : 0) - (dy ? dy.date : 0);
-    });
+    if (key === 'THIRD') continue; // third-place shown via results, not the main tree
+    const matches = MATCHES_IN[key];
+    if (!matches) continue;
     html += `<div class="bk-round"><div class="bk-round-label">${label}</div>`;
-    for (const ev of games) {
-      const win = koWinner(ev);
-      const hs = +ev.intHomeScore, as = +ev.intAwayScore;
-      const pens = isFinished(ev) && hs === as && win != null;
+    for (const m of matches) {
+      const slots = slotsFor(m, events, memo);
+      const win = resolveWinner(m, events, memo);
+      // scores only for actual played R32 events (later rounds: show teams advancing)
+      let scoreH = '', scoreA = '', pens = false;
+      const ev = R32[m] ? eventForMatch(m, events)
+        : (slots[0].team && slots[1].team) ? events.find(e => {
+            const h = matchTeam(e.strHomeTeam), a = matchTeam(e.strAwayTeam);
+            return (h === slots[0].team && a === slots[1].team) || (h === slots[1].team && a === slots[0].team);
+          }) : null;
+      if (ev && isFinished(ev)) {
+        const hMatch = matchTeam(ev.strHomeTeam);
+        const homeIsSlot0 = hMatch === slots[0].team;
+        scoreH = homeIsSlot0 ? ev.intHomeScore : ev.intAwayScore;
+        scoreA = homeIsSlot0 ? ev.intAwayScore : ev.intHomeScore;
+        pens = (+ev.intHomeScore === +ev.intAwayScore) && win != null;
+      }
+      const row = (slot, score) => {
+        const base = bkSlot(slot, win, events);
+        return score !== '' && score != null
+          ? base.replace('</div>', `<span class="bk-score">${score}</span></div>`)
+          : base;
+      };
       html += `<div class="bk-match">
-        ${bkTeam(ev, true, win)}
-        ${bkTeam(ev, false, win)}
+        ${row(slots[0], scoreH)}
+        ${row(slots[1], scoreA)}
         ${pens ? `<div class="bk-pens">decided on penalties</div>` : ''}
       </div>`;
     }
