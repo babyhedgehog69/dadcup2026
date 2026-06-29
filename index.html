@@ -176,6 +176,16 @@
     margin: 0 7px;
     vertical-align: -1px;
   }
+  .live-owner {
+    display: inline-block;
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.85;
+    margin-left: 5px;
+  }
   .live-dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%;
     background: var(--paper-hi); margin-right: 6px; vertical-align: 1px;
@@ -654,10 +664,10 @@ function withinLiveWindow(ev) {
   return age >= -10 * 60 * 1000 && age <= LIVE_WINDOW_MS; // up to 10 min early, 3.5h after
 }
 const isLive = ev => {
-  if (ev._liveFeed && !FINISHED.has(statusKey(ev))) return true; // came from the live feed
-  const raw = (ev.strStatus || '').trim().toUpperCase();
   if (FINISHED.has(statusKey(ev))) return false; // explicit FT/AET/PEN always wins
-  if (!withinLiveWindow(ev)) return false;        // too long since kickoff → treat as done
+  if (!withinLiveWindow(ev)) return false;        // too long since kickoff → not live, period
+  if (ev._liveFeed) return true;                  // in the live feed AND still within the window
+  const raw = (ev.strStatus || '').trim().toUpperCase();
   if (PHASE.has(raw)) return true;
   if (LIVE.has(statusKey(ev))) return true;
   if (/^\d{1,3}(\+\d{0,2})?'?$/.test(raw)) return true; // minute status, e.g. "67" or "90+2"
@@ -876,7 +886,9 @@ function renderLive(events) {
   const live = events.filter(ev => isLive(ev) && (matchTeam(ev.strHomeTeam) || matchTeam(ev.strAwayTeam)));
   const tag = (team, raw) => {
     const m = team ? TEAM_META[team] : null;
-    return m ? `${m[1]} ${m[0]}` : esc(raw);
+    const owner = team ? ownerOf(team) : null;
+    const label = m ? `${m[1]} ${m[0]}` : esc(raw);
+    return owner ? `${label}<span class="live-owner">${esc(owner)}</span>` : label;
   };
   document.getElementById('live').innerHTML = live.map(ev => {
     const h = matchTeam(ev.strHomeTeam), a = matchTeam(ev.strAwayTeam);
@@ -945,9 +957,11 @@ function mergeLive(schedule, live) {
     if (h && a) liveByPair[h + '|' + a] = lv;
   }
   return schedule.map(ev => {
+    if (!withinLiveWindow(ev)) return ev; // old game → schedule's final score is authoritative
     const h = matchTeam(ev.strHomeTeam), a = matchTeam(ev.strAwayTeam);
     const lv = liveById[String(ev.idEvent)] || (h && a && liveByPair[h + '|' + a]);
     if (!lv) return ev;
+    if (FINISHED.has(norm(lv.strStatus))) return ev; // feed says done → use schedule's clean final
     return {
       ...ev,
       _liveFeed: true,
