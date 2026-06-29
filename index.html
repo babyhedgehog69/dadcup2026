@@ -245,6 +245,16 @@
   .day-head:first-child { margin-top: 0; }
   .game { padding: 14px 2px; border-bottom: 1px solid var(--rule); }
   .game:last-child { border-bottom: none; }
+  .game-round {
+    font-family: 'Anton', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cobalt);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .g-abbr-tbd { font-size: 14px; color: var(--faint); }
   .game-match { display: flex; align-items: center; justify-content: center; gap: 14px; }
   .g-side { flex: 1; min-width: 0; text-align: center; }
   .g-flag { font-size: 30px; line-height: 1; }
@@ -656,6 +666,23 @@ DRAFT.forEach(([team, , owner]) => { OWNER_BY_TEAM[team] = owner; });
 const ownerOf = t => OWNER_BY_TEAM[t] || null;
 const GROUP_BY_TEAM = {};
 DRAFT.forEach(([team, group]) => { GROUP_BY_TEAM[team] = group; });
+
+/* short round tag for a fixture */
+const ROUND_LABEL = { GS: '', R32: 'ROUND OF 32', R16: 'ROUND OF 16', QF: 'QUARTER-FINAL', SF: 'SEMI-FINAL', THIRD: 'THIRD PLACE', FINAL: 'FINAL' };
+
+/* turn a bracket placeholder ("Winner Match 75", "Runner-up Group B") into something
+   short and readable so you can see who a locked team might play next */
+function cleanPlaceholder(raw) {
+  let s = (raw || '').trim();
+  if (!s) return 'TBD';
+  s = s.replace(/runners?[-\s]?up\s+(of\s+)?/i, '2nd ')
+       .replace(/winners?\s+(of\s+)?/i, 'Win ')
+       .replace(/\bmatch\s*/i, 'M')
+       .replace(/\bgroup\s*/i, 'Grp ')
+       .replace(/\s+/g, ' ')
+       .trim();
+  return s.length > 15 ? s.slice(0, 14) + '…' : s;
+}
 const TZ = 'America/Los_Angeles';
 
 /* [FIFA abbreviation, flag emoji] per drafted team */
@@ -918,7 +945,7 @@ function renderGames(events, standings) {
     const meta = team ? TEAM_META[team] : null;
     const head = meta
       ? `<div class="g-flag">${meta[1]}</div><div class="g-abbr">${meta[0]}</div>`
-      : `<div class="g-abbr">${esc(raw)}</div>`;
+      : `<div class="g-abbr g-abbr-tbd">${esc(cleanPlaceholder(raw))}</div>`;
     return `<div class="g-side${cls}">
       ${head}
       ${owner ? `<div class="g-owner">${esc(owner)} ${chip(owner)}</div>`
@@ -933,6 +960,7 @@ function renderGames(events, standings) {
     if (dayLabel !== lastDay) { html += `<div class="day-head">${dayLabel}</div>`; lastDay = dayLabel; }
 
     const live = isLive(ev);
+    const roundTag = ROUND_LABEL[classifyRound(ev)] || '';
     const timeLabel = when.hasTime
       ? when.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ }) + ' PT'
       : 'TBD';
@@ -943,6 +971,7 @@ function renderGames(events, standings) {
     const venue = [ev.strVenue, ev.strCity].filter(v => v && v.trim()).join(' · ');
 
     html += `<div class="game">
+      ${roundTag ? `<div class="game-round">${roundTag}</div>` : ''}
       <div class="game-match">
         ${side(matchTeam(ev.strHomeTeam), ev.strHomeTeam, '')}
         <div class="g-mid">${mid}</div>
@@ -979,7 +1008,7 @@ function bkTeam(ev, isHome, win) {
   const isWin = win && (team ? win === team : win === raw);
   const head = meta
     ? `<span class="bk-flag">${meta[1]}</span><span class="bk-abbr">${meta[0]}</span>`
-    : `<span class="bk-abbr bk-tbd">TBD</span>`;
+    : `<span class="bk-abbr bk-tbd">${esc(cleanPlaceholder(raw))}</span>`;
   return `<div class="bk-team${isWin ? ' bk-win' : ''}">
     ${head}${owner ? `<span class="bk-owner">${esc(owner)}</span>` : ''}
     <span class="bk-score">${score ?? ''}</span>
