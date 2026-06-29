@@ -216,11 +216,11 @@
   .tab {
     flex: 1;
     font-family: 'Anton', sans-serif;
-    font-size: 15px;
-    letter-spacing: 0.3em;
+    font-size: 13px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: center;
-    padding: 14px 0 12px 0.3em;
+    padding: 14px 2px 12px;
     background: var(--paper-hi);
     color: var(--ink);
     border: none;
@@ -300,6 +300,68 @@
     letter-spacing: 0.02em;
   }
   .games-empty { text-align: center; padding: 30px 10px; color: var(--faint); font-size: 14px; line-height: 1.6; }
+
+  /* ============ BRACKET ============ */
+  .bk-round { margin-bottom: 20px; }
+  .bk-round-label {
+    font-family: 'Anton', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--cobalt);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+  }
+  .bk-match {
+    border: 2px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    background: var(--paper-hi);
+    margin-bottom: 12px;
+  }
+  .bk-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 11px;
+    font-family: 'Jost', sans-serif;
+    font-weight: 500;
+  }
+  .bk-team + .bk-team { border-top: 1px solid var(--rule); }
+  .bk-flag { font-size: 21px; line-height: 1; }
+  .bk-abbr {
+    font-family: 'Anton', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    min-width: 48px;
+  }
+  .bk-tbd { color: var(--faint); }
+  .bk-owner {
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--cobalt);
+  }
+  .bk-score {
+    margin-left: auto;
+    font-family: 'Anton', sans-serif;
+    font-size: 19px;
+    min-width: 20px;
+    text-align: right;
+  }
+  .bk-win { background: rgba(30, 107, 60, 0.13); }
+  .bk-win .bk-abbr, .bk-win .bk-score { color: var(--green); }
+  .bk-win .bk-owner { color: var(--green); }
+  .bk-pens {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--verm);
+    text-align: right;
+    padding: 0 11px 7px;
+  }
 
   .board-inner { padding: 6px 14px 14px; }
 
@@ -492,6 +554,7 @@
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="standings" role="tab" aria-selected="true">Standings</button>
       <button class="tab" data-tab="games" role="tab" aria-selected="false">Games</button>
+      <button class="tab" data-tab="bracket" role="tab" aria-selected="false">Bracket</button>
     </div>
     <div class="board-inner">
       <div id="view-standings">
@@ -499,6 +562,9 @@
       </div>
       <div id="view-games" hidden>
         <div id="games"><div class="state">Loading the schedule…</div></div>
+      </div>
+      <div id="view-bracket" hidden>
+        <div id="bracket"><div class="state">Loading the bracket…</div></div>
       </div>
     </div>
   </main>
@@ -588,6 +654,8 @@ function matchTeam(apiName) {
 const OWNER_BY_TEAM = {};
 DRAFT.forEach(([team, , owner]) => { OWNER_BY_TEAM[team] = owner; });
 const ownerOf = t => OWNER_BY_TEAM[t] || null;
+const GROUP_BY_TEAM = {};
+DRAFT.forEach(([team, group]) => { GROUP_BY_TEAM[team] = group; });
 const TZ = 'America/Los_Angeles';
 
 /* [FIFA abbreviation, flag emoji] per drafted team */
@@ -622,6 +690,10 @@ const TEAM_META = {
    intRound codes when present (125 QF / 150 SF / 160 3rd / 200 Final),
    otherwise the official 2026 calendar windows. */
 function classifyRound(ev) {
+  /* two teams from the same group can only meet in the group stage —
+     this beats any stray round code or date the feed might send */
+  const ht = matchTeam(ev.strHomeTeam), at = matchTeam(ev.strAwayTeam);
+  if (ht && at && GROUP_BY_TEAM[ht] && GROUP_BY_TEAM[ht] === GROUP_BY_TEAM[at]) return 'GS';
   const r = parseInt(ev.intRound, 10);
   if (r === 125) return 'QF';
   if (r === 150) return 'SF';
@@ -882,6 +954,74 @@ function renderGames(events, standings) {
   host.innerHTML = html;
 }
 
+/* =================== BRACKET =================== */
+const KO_ROUNDS = [
+  ['R32', 'Round of 32'], ['R16', 'Round of 16'], ['QF', 'Quarter-Finals'],
+  ['SF', 'Semi-Finals'], ['THIRD', 'Third Place'], ['FINAL', 'Final'],
+];
+
+/* winner of a knockout tie (matched team name), or null if undecided/not done */
+function koWinner(ev) {
+  if (!isFinished(ev)) return null;
+  const h = matchTeam(ev.strHomeTeam), a = matchTeam(ev.strAwayTeam);
+  const hs = +ev.intHomeScore, as = +ev.intAwayScore;
+  if (hs > as) return h || ev.strHomeTeam;
+  if (as > hs) return a || ev.strAwayTeam;
+  return penaltyWinner(ev, h, a);
+}
+
+function bkTeam(ev, isHome, win) {
+  const raw = isHome ? ev.strHomeTeam : ev.strAwayTeam;
+  const score = isHome ? ev.intHomeScore : ev.intAwayScore;
+  const team = matchTeam(raw);
+  const meta = team ? TEAM_META[team] : null;
+  const owner = team ? ownerOf(team) : null;
+  const isWin = win && (team ? win === team : win === raw);
+  const head = meta
+    ? `<span class="bk-flag">${meta[1]}</span><span class="bk-abbr">${meta[0]}</span>`
+    : `<span class="bk-abbr bk-tbd">TBD</span>`;
+  return `<div class="bk-team${isWin ? ' bk-win' : ''}">
+    ${head}${owner ? `<span class="bk-owner">${esc(owner)}</span>` : ''}
+    <span class="bk-score">${score ?? ''}</span>
+  </div>`;
+}
+
+function renderBracket(events) {
+  const host = document.getElementById('bracket');
+  const byRound = {};
+  for (const ev of events) {
+    const r = classifyRound(ev);
+    if (r === 'GS') continue;
+    (byRound[r] ||= []).push(ev);
+  }
+  if (!KO_ROUNDS.some(([k]) => byRound[k] && byRound[k].length)) {
+    host.innerHTML = `<div class="games-empty">The bracket fills in once the group stage wraps<br>and the Round of 32 is set.</div>`;
+    return;
+  }
+  let html = '';
+  for (const [key, label] of KO_ROUNDS) {
+    const games = byRound[key];
+    if (!games || !games.length) continue;
+    games.sort((x, y) => {
+      const dx = eventDate(x), dy = eventDate(y);
+      return (dx ? dx.date : 0) - (dy ? dy.date : 0);
+    });
+    html += `<div class="bk-round"><div class="bk-round-label">${label}</div>`;
+    for (const ev of games) {
+      const win = koWinner(ev);
+      const hs = +ev.intHomeScore, as = +ev.intAwayScore;
+      const pens = isFinished(ev) && hs === as && win != null;
+      html += `<div class="bk-match">
+        ${bkTeam(ev, true, win)}
+        ${bkTeam(ev, false, win)}
+        ${pens ? `<div class="bk-pens">decided on penalties</div>` : ''}
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  host.innerHTML = html;
+}
+
 function renderLive(events) {
   const live = events.filter(ev => isLive(ev) && (matchTeam(ev.strHomeTeam) || matchTeam(ev.strAwayTeam)));
   const tag = (team, raw) => {
@@ -985,6 +1125,7 @@ async function load() {
     renderLive(events);
     render(standings);
     renderGames(events, standings);
+    renderBracket(events);
     const now = new Date();
     document.getElementById('updated').innerHTML =
       `UPDATED ${now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} <button id="refresh">↻ REFRESH</button>`;
@@ -1008,6 +1149,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     });
     document.getElementById('view-standings').hidden = which !== 'standings';
     document.getElementById('view-games').hidden = which !== 'games';
+    document.getElementById('view-bracket').hidden = which !== 'bracket';
   });
 });
 
