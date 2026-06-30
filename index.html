@@ -728,16 +728,19 @@ const TEAM_META = {
    intRound codes when present (125 QF / 150 SF / 160 3rd / 200 Final),
    otherwise the official 2026 calendar windows. */
 function classifyRound(ev) {
-  /* two teams from the same group can only meet in the group stage —
-     this beats any stray round code or date the feed might send */
-  const ht = matchTeam(ev.strHomeTeam), at = matchTeam(ev.strAwayTeam);
-  if (ht && at && GROUP_BY_TEAM[ht] && GROUP_BY_TEAM[ht] === GROUP_BY_TEAM[at]) return 'GS';
   const r = parseInt(ev.intRound, 10);
   if (r === 125) return 'QF';
   if (r === 150) return 'SF';
   if (r === 160) return 'THIRD';
   if (r === 200) return 'FINAL';
   const d = ev.dateEvent || '';
+  /* two teams from the same original group will usually meet in the group
+     stage — but from the QF onward they can legitimately meet again, so
+     this override only fires while we're still inside the GS date window.
+     (Without the date guard, real knockout rematches between former
+     group-mates were getting scored as group wins instead of KO wins.) */
+  const ht = matchTeam(ev.strHomeTeam), at = matchTeam(ev.strAwayTeam);
+  if (ht && at && GROUP_BY_TEAM[ht] && GROUP_BY_TEAM[ht] === GROUP_BY_TEAM[at] && (!d || d <= '2026-06-27')) return 'GS';
   if (d <= '2026-06-27') return 'GS';
   if (d <= '2026-07-03') return 'R32';
   if (d <= '2026-07-08') return 'R16';
