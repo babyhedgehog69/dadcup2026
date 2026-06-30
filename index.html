@@ -801,6 +801,17 @@ function liveClock(ev) {
   return 'LIVE';
 }
 
+/* TheSportsDB has no penalty-shootout score field for soccer at all (checked
+   against their own published schema), and the schedule-advancement fallback
+   below can't kick in until the *next* round's fixtures get real team names
+   — which the feed doesn't do until the whole current round finishes. So for
+   anything decided on pens before then, add it here. One line per match,
+   keyed by "TeamA|TeamB" in either order — whoever's named is the winner. */
+const PEN_WINNERS = {
+  'Germany|Paraguay': 'Paraguay',
+  'Netherlands|Morocco': 'Morocco',
+};
+
 /* penalty shootout winner, best effort across possible API fields.
    NOTE: TheSportsDB's documented soccer schema has no dedicated penalty-score
    field (no intHomeScorePenalty / intHomeShootoutScore etc.) — those are kept
@@ -811,6 +822,10 @@ function liveClock(ev) {
    ever) a shootout score gets backfilled. If a team already appears in any
    other fixture, they won this tie — the loser has no later fixture. */
 function penaltyWinner(ev, home, away, events) {
+  if (home && away) {
+    const known = PEN_WINNERS[`${home}|${away}`] ?? PEN_WINNERS[`${away}|${home}`];
+    if (known) return known;
+  }
   const hp = parseInt(ev.intHomeScorePenalty ?? ev.intHomePenScore ?? ev.intHomeShootoutScore, 10);
   const ap = parseInt(ev.intAwayScorePenalty ?? ev.intAwayPenScore ?? ev.intAwayShootoutScore, 10);
   if (!isNaN(hp) && !isNaN(ap) && hp !== ap) return hp > ap ? home : away;
@@ -1049,16 +1064,17 @@ function bkTeam(ev, isHome, win) {
    The 2026 knockout bracket is fixed and published in advance. We hardcode the
    R32 pairings (match 73–88) and the feed-forward map, then resolve winners from
    live results so you can see who a qualified team might play next.
-   R32 pairings are the confirmed bracket (CBS/FIFA, June 2026). */
+   R32 pairings are the confirmed bracket per FIFA's official match numbering
+   (cross-checked against Sky Sports' published fixture list, June 2026). */
 const R32 = {
-  73: ['South Africa', 'Canada'],     74: ['Brazil', 'Japan'],
-  75: ['Netherlands', 'Morocco'],     76: ['Germany', 'Paraguay'],
-  77: ['Mexico', 'Ecuador'],          78: ['France', 'Sweden'],
-  79: ['Ivory Coast', 'Norway'],      80: ['Spain', 'Austria'],
-  81: ['England', 'Congo DR'],        82: ['United States', 'Bosnia-Herzegovina'],
-  83: ['Belgium', 'Senegal'],         84: ['Switzerland', 'Algeria'],
-  85: ['Argentina', 'Cabo Verde'],    86: ['Portugal', 'Croatia'],
-  87: ['Colombia', 'Ghana'],          88: ['Australia', 'Egypt'],
+  73: ['South Africa', 'Canada'],     74: ['Germany', 'Paraguay'],
+  75: ['Netherlands', 'Morocco'],     76: ['Brazil', 'Japan'],
+  77: ['France', 'Sweden'],           78: ['Ivory Coast', 'Norway'],
+  79: ['Mexico', 'Ecuador'],          80: ['England', 'Congo DR'],
+  81: ['United States', 'Bosnia-Herzegovina'], 82: ['Belgium', 'Senegal'],
+  83: ['Colombia', 'Ghana'],          84: ['Spain', 'Austria'],
+  85: ['Switzerland', 'Algeria'],     86: ['Argentina', 'Cabo Verde'],
+  87: ['Portugal', 'Croatia'],        88: ['Australia', 'Egypt'],
 };
 /* match -> [feeder match A, feeder match B] for later rounds */
 const FEED = {
