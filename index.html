@@ -801,8 +801,16 @@ function liveClock(ev) {
   return 'LIVE';
 }
 
-/* penalty shootout winner, best effort across possible API fields */
-function penaltyWinner(ev, home, away) {
+/* penalty shootout winner, best effort across possible API fields.
+   NOTE: TheSportsDB's documented soccer schema has no dedicated penalty-score
+   field (no intHomeScorePenalty / intHomeShootoutScore etc.) — those are kept
+   below as a harmless first try in case an undocumented field is ever
+   populated, but the reliable signal is schedule advancement: the feed swaps
+   a later round's "Winner Match N" placeholder for the real team name as
+   soon as that team is confirmed through, which happens well before (if
+   ever) a shootout score gets backfilled. If a team already appears in any
+   other fixture, they won this tie — the loser has no later fixture. */
+function penaltyWinner(ev, home, away, events) {
   const hp = parseInt(ev.intHomeScorePenalty ?? ev.intHomePenScore ?? ev.intHomeShootoutScore, 10);
   const ap = parseInt(ev.intAwayScorePenalty ?? ev.intAwayPenScore ?? ev.intAwayShootoutScore, 10);
   if (!isNaN(hp) && !isNaN(ap) && hp !== ap) return hp > ap ? home : away;
@@ -810,6 +818,14 @@ function penaltyWinner(ev, home, away) {
   if (txt) {
     if (home && txt.includes(norm(home) + 'win')) return home;
     if (away && txt.includes(norm(away) + 'win')) return away;
+  }
+  if (events && home && away) {
+    const after = ev.dateEvent || '';
+    const advanced = t => events.some(e2 => e2 !== ev && (e2.dateEvent || '') > after &&
+      (matchTeam(e2.strHomeTeam) === t || matchTeam(e2.strAwayTeam) === t));
+    const homeAdv = advanced(home), awayAdv = advanced(away);
+    if (homeAdv && !awayAdv) return home;
+    if (awayAdv && !homeAdv) return away;
   }
   return null;
 }
@@ -834,7 +850,7 @@ function buildStandings(events) {
       if (home) addGS(teams[home], hs, as, ev, away || ev.strAwayTeam, true);
       if (away) addGS(teams[away], as, hs, ev, home || ev.strHomeTeam, false);
     } else {
-      let winner = hs > as ? home : as > hs ? away : penaltyWinner(ev, home, away);
+      let winner = hs > as ? home : as > hs ? away : penaltyWinner(ev, home, away, events);
       const decidedOnPens = hs === as && winner != null;
       const undecided = hs === as && winner == null;
       for (const t of [home, away]) {
@@ -1004,13 +1020,13 @@ const KO_ROUNDS = [
 ];
 
 /* winner of a knockout tie (matched team name), or null if undecided/not done */
-function koWinner(ev) {
+function koWinner(ev, events) {
   if (!isFinished(ev)) return null;
   const h = matchTeam(ev.strHomeTeam), a = matchTeam(ev.strAwayTeam);
   const hs = +ev.intHomeScore, as = +ev.intAwayScore;
   if (hs > as) return h || ev.strHomeTeam;
   if (as > hs) return a || ev.strAwayTeam;
-  return penaltyWinner(ev, h, a);
+  return penaltyWinner(ev, h, a, events);
 }
 
 function bkTeam(ev, isHome, win) {
@@ -1077,7 +1093,7 @@ function resolveWinner(matchNo, events, memo) {
   let win = null;
   if (R32[matchNo]) {
     const ev = eventForMatch(matchNo, events);
-    win = ev ? koWinner(ev) : null;
+    win = ev ? koWinner(ev, events) : null;
   } else if (FEED[matchNo]) {
     // winner comes from a feeder match's played event (API may also carry it directly)
     const [fa, fb] = FEED[matchNo];
@@ -1088,7 +1104,7 @@ function resolveWinner(matchNo, events, memo) {
         const h = matchTeam(e.strHomeTeam), a = matchTeam(e.strAwayTeam);
         return (h === ta && a === tb) || (h === tb && a === ta);
       });
-      if (ev) win = koWinner(ev);
+      if (ev) win = koWinner(ev, events);
     }
   }
   memo[matchNo] = win;
