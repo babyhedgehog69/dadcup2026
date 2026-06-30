@@ -725,22 +725,46 @@ const TEAM_META = {
 };
 
 /* ---------- round classification ----------
-   intRound codes when present (125 QF / 150 SF / 160 3rd / 200 Final),
-   otherwise the official 2026 calendar windows. */
+   Exact team-pair checks first (immune to timezone date-rollover), then
+   intRound codes, then calendar windows as a last resort. */
 function classifyRound(ev) {
+  const ht = matchTeam(ev.strHomeTeam), at = matchTeam(ev.strAwayTeam);
+  /* Most reliable signal of all: if this exact pair is one of the 16
+     published Round of 32 fixtures, it's R32 — no date involved. This
+     matters because a handful of late-kickoff group matches (e.g. games
+     starting near midnight local time) get recorded by the feed with a
+     dateEvent that's already rolled over to the next day in UTC, which
+     pushed them past the GS cutoff and into the wrong round entirely
+     (Argentina's group-stage win over Jordan was showing up tagged "R32"
+     for exactly this reason). */
+  if (ht && at) {
+    const isR32Pair = Object.values(R32).some(([t1, t2]) =>
+      (t1 === ht && t2 === at) || (t1 === at && t2 === ht));
+    if (isR32Pair) return 'R32';
+  }
+  /* Next most reliable: two teams from the same original draft group can
+     only meet in the group stage — every R32 pairing above is confirmed
+     cross-group, so this can't collide with the check above. Capped to the
+     group-stage window (with a one-day buffer for the timezone rollover
+     described above) so it can't misfire on a real later-round rematch
+     between former group-mates — e.g. Sweden and Netherlands, both Group F,
+     can legitimately meet again in the Quarter-Final under this bracket. */
+  const d0 = ev.dateEvent || '';
+  if (ht && at && GROUP_BY_TEAM[ht] && GROUP_BY_TEAM[ht] === GROUP_BY_TEAM[at] &&
+      (!d0 || d0 <= '2026-06-28')) return 'GS';
+  /* intRound codes are competition-relative, not global — the same numeric
+     code can mean something totally different in another competition this
+     feed also tracks (confirmed: intRound 150 shows up on an ordinary
+     domestic-cup semifinal elsewhere in this API) — so they're only trusted
+     once the two checks above (which don't have that ambiguity) come up
+     empty. */
   const r = parseInt(ev.intRound, 10);
   if (r === 125) return 'QF';
   if (r === 150) return 'SF';
   if (r === 160) return 'THIRD';
   if (r === 200) return 'FINAL';
+  /* Last resort: calendar windows. */
   const d = ev.dateEvent || '';
-  /* two teams from the same original group will usually meet in the group
-     stage — but from the QF onward they can legitimately meet again, so
-     this override only fires while we're still inside the GS date window.
-     (Without the date guard, real knockout rematches between former
-     group-mates were getting scored as group wins instead of KO wins.) */
-  const ht = matchTeam(ev.strHomeTeam), at = matchTeam(ev.strAwayTeam);
-  if (ht && at && GROUP_BY_TEAM[ht] && GROUP_BY_TEAM[ht] === GROUP_BY_TEAM[at] && (!d || d <= '2026-06-27')) return 'GS';
   if (d <= '2026-06-27') return 'GS';
   if (d <= '2026-07-03') return 'R32';
   if (d <= '2026-07-08') return 'R16';
